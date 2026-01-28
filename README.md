@@ -51,7 +51,7 @@ obfuscation-service/
 
 1. **Clone o repositório**
 ```bash
-git clone <repository-url>
+git clone [<repository-url>](https://github.com/EnzoVieira3012/obfuscation-service.api.git)
 cd obfuscation-service
 ```
 
