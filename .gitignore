@@ -1,0 +1,82 @@
+# ======================
+# Build e binários
+# ======================
+bin/
+obj/
+out/
+*.dll
+*.exe
+*.pdb
+*.app
+*.so
+*.dylib
+*.a
+*.lib
+
+# ======================
+# Pacotes NuGet
+# ======================
+*.nupkg
+*.snupkg
+*.nuspec
+# restore do NuGet
+*.nuget/
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ======================
+# User-specific / IDE
+# ======================
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.vs/
+.vscode/
+.history/
+.idea/
+*.code-workspace
+
+# ======================
+# Logs
+# ======================
+*.log
+logs/
+*.trace
+*.stackdump
+
+# ======================
+# Configs sensíveis
+# ======================
+.env
+appsettings.*.json
+secrets.json
+
+# ======================
+# Rider
+# ======================
+.idea/
+*.iml
+
+# ======================
+# Mac / Linux
+# ======================
+.DS_Store
+Thumbs.db
+
+# ======================
+# Test / Coverage
+# ======================
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+*.opencover
+
+# ======================
+# Outros
+# ======================
+*.vsix
+*.njsproj.user
