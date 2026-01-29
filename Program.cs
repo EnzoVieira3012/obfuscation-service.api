@@ -14,7 +14,8 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy.WithOrigins(
-                "http://localhost:4200"
+                "http://localhost:4200",
+                "https://obfuscation-serviceweb.vercel.app/"
             )
             .AllowAnyHeader()
             .AllowAnyMethod();
