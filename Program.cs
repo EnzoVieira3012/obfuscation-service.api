@@ -6,6 +6,21 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DEBUG: Verifique a chave
+Console.WriteLine("=== INICIALIZANDO API DE OBFUSCAÇÃO ===");
+var secret = builder.Configuration["ENCRYPTED_ID_SECRET"] 
+             ?? Environment.GetEnvironmentVariable("ENCRYPTED_ID_SECRET");
+             
+if (string.IsNullOrEmpty(secret))
+{
+    Console.WriteLine("❌ ERRO: ENCRYPTED_ID_SECRET não encontrado!");
+}
+else
+{
+    Console.WriteLine($"✅ Chave carregada: {secret.Substring(0, Math.Min(8, secret.Length))}...");
+    Console.WriteLine($"   Tamanho: {secret.Length} caracteres");
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
@@ -13,17 +28,6 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
-    });
-    
-    options.AddPolicy("ProductionCors", policy =>
-    {
-        policy.WithOrigins(
-                "http://localhost:4200",
-                "https://obfuscation-serviceweb.vercel.app"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
     });
 });
 
@@ -36,23 +40,20 @@ builder.Services.AddSingleton<IEncryptedIdService, EncryptedIdService>();
 
 var app = builder.Build();
 
-// Aplicar CORS baseado no ambiente
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("AllowAll");
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    app.UseCors("ProductionCors");
-    app.UseSwagger();
-    app.UseSwaggerUI(c => 
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Obfuscation API");
-        c.RoutePrefix = string.Empty; // Para exibir Swagger na raiz em produção
-    });
-}
+app.UseCors("AllowAll");
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapControllers();
+
+// Endpoint de saúde
+app.MapGet("/", () => "Obfuscation Service API - Compatível com Ailos");
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    Status = "Healthy", 
+    Service = "Obfuscation API",
+    CompatibleWith = "Ailos EncryptedId",
+    Timestamp = DateTime.UtcNow
+}));
+
 app.Run();
