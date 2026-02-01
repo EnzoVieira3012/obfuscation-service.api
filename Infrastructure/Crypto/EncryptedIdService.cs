@@ -27,7 +27,7 @@ public sealed class EncryptedIdService : IEncryptedIdService
         var cipher = AesEncrypt(payload);
         var token = Base64UrlEncode(cipher);
 
-        // IMPORTANTE: SEM PREFIXO "obf_" - igual ao Ailos
+        // SEM PREFIXO "obf_" - igual ao Ailos
         return new EncryptedId(token);
     }
 
@@ -37,7 +37,9 @@ public sealed class EncryptedIdService : IEncryptedIdService
         var payload = AesDecrypt(cipher);
         Console.WriteLine($"Payload (Base64): {Convert.ToBase64String(payload)}");
         
-        ValidatePayload(payload, out var id);
+        // Validar payload e extrair ID
+        if (!ValidatePayload(payload, out var id))
+            throw new ArgumentException("Token inválido ou corrompido.");
         
         Console.WriteLine($"ID decifrado: {id}");
         Console.WriteLine($"=== FIM DECRYPT DEBUG ===");
