@@ -36,6 +36,13 @@ app.UseCors(MyAllowSpecificOrigins);
 app.UseSwagger();
 app.UseSwaggerUI();
 
+// Adicione este middleware para logs de todas as requisições
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {context.Request.Method} {context.Request.Path}");
+    await next();
+});
+
 app.MapControllers();
 
 app.Run();
