@@ -6,29 +6,20 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-// DEBUG: Verifique se a chave está sendo carregada
-Console.WriteLine("=== INICIALIZANDO API ===");
-var secret = builder.Configuration["ENCRYPTED_ID_SECRET"];
+// DEBUG: Verifique a chave
+Console.WriteLine("=== INICIALIZANDO API DE OBFUSCAÇÃO ===");
+var secret = builder.Configuration["ENCRYPTED_ID_SECRET"] 
+             ?? Environment.GetEnvironmentVariable("ENCRYPTED_ID_SECRET");
+             
 if (string.IsNullOrEmpty(secret))
 {
-    Console.WriteLine("ERRO: ENCRYPTED_ID_SECRET não encontrado na configuração!");
-    
-    // Tenta carregar do ambiente alternativo
-    secret = Environment.GetEnvironmentVariable("ENCRYPTED_ID_SECRET");
-    if (string.IsNullOrEmpty(secret))
-    {
-        Console.WriteLine("ERRO: ENCRYPTED_ID_SECRET também não encontrado nas variáveis de ambiente!");
-    }
-    else
-    {
-        Console.WriteLine($"Chave encontrada nas variáveis de ambiente: {secret.Substring(0, Math.Min(secret.Length, 10))}...");
-    }
+    Console.WriteLine("❌ ERRO: ENCRYPTED_ID_SECRET não encontrado!");
 }
 else
 {
-    Console.WriteLine($"Chave encontrada na configuração: {secret.Substring(0, Math.Min(secret.Length, 10))}...");
+    Console.WriteLine($"✅ Chave carregada: {secret.Substring(0, Math.Min(8, secret.Length))}...");
+    Console.WriteLine($"   Tamanho: {secret.Length} caracteres");
 }
-Console.WriteLine("=== FIM DEBUG INICIAL ===");
 
 builder.Services.AddCors(options =>
 {
@@ -37,17 +28,6 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin()
               .AllowAnyMethod()
               .AllowAnyHeader();
-    });
-    
-    options.AddPolicy("ProductionCors", policy =>
-    {
-        policy.WithOrigins(
-                "http://localhost:4200",
-                "https://obfuscation-serviceweb.vercel.app"
-            )
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials();
     });
 });
 
@@ -60,23 +40,9 @@ builder.Services.AddSingleton<IEncryptedIdService, EncryptedIdService>();
 
 var app = builder.Build();
 
-// Aplicar CORS baseado no ambiente
-if (app.Environment.IsDevelopment())
-{
-    app.UseCors("AllowAll");
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-else
-{
-    app.UseCors("ProductionCors");
-    app.UseSwagger();
-    app.UseSwaggerUI(c => 
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Obfuscation API");
-        c.RoutePrefix = string.Empty;
-    });
-}
+app.UseCors("AllowAll");
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Adicione este middleware para logs de todas as requisições
 app.Use(async (context, next) =>
@@ -87,15 +53,14 @@ app.Use(async (context, next) =>
 
 app.MapControllers();
 
-// Endpoint de saúde/teste
-app.MapGet("/health", () => 
-{
-    Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Health check");
-    return Results.Ok(new { 
-        Status = "Healthy", 
-        Timestamp = DateTime.UtcNow,
-        SecretConfigured = !string.IsNullOrEmpty(builder.Configuration["ENCRYPTED_ID_SECRET"])
-    });
-});
+// Endpoint de saúde
+app.MapGet("/", () => "Obfuscation Service API - Compatível com Ailos");
+app.MapGet("/health", () => Results.Ok(new 
+{ 
+    Status = "Healthy", 
+    Service = "Obfuscation API",
+    CompatibleWith = "Ailos EncryptedId",
+    Timestamp = DateTime.UtcNow
+}));
 
 app.Run();

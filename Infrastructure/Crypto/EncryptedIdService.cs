@@ -11,48 +11,29 @@ public sealed class EncryptedIdService : IEncryptedIdService
 
     public EncryptedIdService(IConfiguration configuration)
     {
-        var secret = configuration["ENCRYPTED_ID_SECRET"]
-            ?? throw new InvalidOperationException("ENCRYPTED_ID_SECRET não configurado.");
+        var secretKey = configuration["ENCRYPTED_ID_SECRET"]
+            ?? throw new InvalidOperationException("ENCRYPTED_ID_SECRET não configurada");
 
-        // DEBUG: Verifique a chave que está sendo carregada
-        Console.WriteLine($"=== DEBUG ENCRYPTED ID SERVICE ===");
-        Console.WriteLine($"Chave configurada: {secret}");
-        Console.WriteLine($"Tamanho da chave: {secret.Length}");
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new ArgumentException("A chave secreta não pode ser vazia", nameof(secretKey));
         
         using var sha = SHA256.Create();
-        _key = sha.ComputeHash(Encoding.UTF8.GetBytes(secret));
-        
-        // DEBUG: Verifique o hash da chave
-        Console.WriteLine($"Chave SHA256 (Base64): {Convert.ToBase64String(_key)}");
-        Console.WriteLine($"=== FIM DEBUG ===");
+        _key = sha.ComputeHash(Encoding.UTF8.GetBytes(secretKey));
     }
 
     public EncryptedId Encrypt(long id)
     {
-        Console.WriteLine($"=== ENCRYPT DEBUG: ID = {id} ===");
-        
         var payload = BuildPayload(id);
-        Console.WriteLine($"Payload (Base64): {Convert.ToBase64String(payload)}");
-        
         var cipher = AesEncrypt(payload);
-        Console.WriteLine($"Cipher (Base64): {Convert.ToBase64String(cipher)}");
-        
         var token = Base64UrlEncode(cipher);
-        Console.WriteLine($"Token final: {token}");
-        Console.WriteLine($"=== FIM ENCRYPT DEBUG ===");
-        
-        // IMPORTANTE: SEM prefixo, igual ao Ailos!
+
+        // IMPORTANTE: SEM PREFIXO "obf_" - igual ao Ailos
         return new EncryptedId(token);
     }
 
     public long Decrypt(EncryptedId encryptedId)
     {
-        var value = encryptedId.Value;
-        Console.WriteLine($"=== DECRYPT DEBUG: Valor recebido = {value} ===");
-            
-        var cipher = Base64UrlDecode(value);
-        Console.WriteLine($"Cipher (Base64): {Convert.ToBase64String(cipher)}");
-        
+        var cipher = Base64UrlDecode(encryptedId.Value);
         var payload = AesDecrypt(cipher);
         Console.WriteLine($"Payload (Base64): {Convert.ToBase64String(payload)}");
         
@@ -64,7 +45,28 @@ public sealed class EncryptedIdService : IEncryptedIdService
         return id;
     }
 
-    // ------------------ helpers ------------------
+    public bool TryDecrypt(string encryptedValue, out long id)
+    {
+        id = 0;
+        
+        try
+        {
+            var cipher = Base64UrlDecode(encryptedValue);
+            var payload = AesDecrypt(cipher);
+            
+            if (!ValidatePayload(payload, out var decryptedId))
+                return false;
+                
+            id = decryptedId;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // ------------------ Métodos Privados ------------------
 
     private byte[] BuildPayload(long id)
     {
@@ -74,13 +76,13 @@ public sealed class EncryptedIdService : IEncryptedIdService
         var idBytes = BitConverter.GetBytes(id);
         idBytes.CopyTo(buffer, 0);
 
-        // 2️⃣ nonce determinístico (8 bytes) - IGUAL AO AILOS
+        // 2️⃣ nonce determinístico (8 bytes)
         using var hmac = new HMACSHA256(_key);
         var nonce = hmac.ComputeHash(idBytes);
         Array.Copy(nonce, 0, buffer, 8, 8);
 
-        // 3️⃣ assinatura (16 bytes) - IGUAL AO AILOS
-        var signature = hmac.ComputeHash(buffer, 0, 16);
+        // 3️⃣ assinatura (16 bytes)
+        var signature = hmac.ComputeHash(buffer[..16]);
         Array.Copy(signature, 0, buffer, 16, 16);
 
         return buffer;
@@ -88,20 +90,19 @@ public sealed class EncryptedIdService : IEncryptedIdService
 
     private void ValidatePayload(byte[] payload, out long id)
     {
-        if (payload.Length != 32)
-            throw new ArgumentException("Payload inválido. Tamanho incorreto.");
-        
         id = BitConverter.ToInt64(payload, 0);
         
         // Verificar assinatura - IGUAL AO AILOS
         using var hmac = new HMACSHA256(_key);
-        var expectedSignature = hmac.ComputeHash(payload, 0, 16);
         
-        // Comparar assinaturas byte a byte
+        // Recalcular assinatura dos primeiros 16 bytes
+        var expectedSignature = hmac.ComputeHash(payload[..16]);
+        
+        // Comparar com os últimos 16 bytes
         for (int i = 0; i < 16; i++)
         {
             if (payload[16 + i] != expectedSignature[i])
-                throw new ArgumentException("Token inválido ou corrompido. Assinatura não confere.");
+                return false;
         }
     }
 
@@ -109,8 +110,8 @@ public sealed class EncryptedIdService : IEncryptedIdService
     {
         using var aes = Aes.Create();
         aes.Key = _key;
-        aes.Mode = CipherMode.ECB; // Determinístico - IGUAL AO AILOS
-        aes.Padding = PaddingMode.None; // IGUAL AO AILOS
+        aes.Mode = CipherMode.ECB;
+        aes.Padding = PaddingMode.None;
 
         using var encryptor = aes.CreateEncryptor();
         return encryptor.TransformFinalBlock(input, 0, input.Length);
