@@ -35,8 +35,12 @@ public sealed class EncryptedIdService : IEncryptedIdService
     {
         var cipher = Base64UrlDecode(encryptedId.Value);
         var payload = AesDecrypt(cipher);
+        Console.WriteLine($"Payload (Base64): {Convert.ToBase64String(payload)}");
         
         ValidatePayload(payload, out var id);
+        
+        Console.WriteLine($"ID decifrado: {id}");
+        Console.WriteLine($"=== FIM DECRYPT DEBUG ===");
         
         return id;
     }
@@ -68,12 +72,13 @@ public sealed class EncryptedIdService : IEncryptedIdService
     {
         var buffer = new byte[32];
 
-        // 1️⃣ ID (8 bytes)
-        BitConverter.GetBytes(id).CopyTo(buffer, 0);
+        // 1️⃣ ID (8 bytes) - IGUAL AO AILOS
+        var idBytes = BitConverter.GetBytes(id);
+        idBytes.CopyTo(buffer, 0);
 
         // 2️⃣ nonce determinístico (8 bytes)
         using var hmac = new HMACSHA256(_key);
-        var nonce = hmac.ComputeHash(BitConverter.GetBytes(id));
+        var nonce = hmac.ComputeHash(idBytes);
         Array.Copy(nonce, 0, buffer, 8, 8);
 
         // 3️⃣ assinatura (16 bytes)
@@ -83,11 +88,11 @@ public sealed class EncryptedIdService : IEncryptedIdService
         return buffer;
     }
 
-    private bool ValidatePayload(byte[] payload, out long id)
+    private void ValidatePayload(byte[] payload, out long id)
     {
         id = BitConverter.ToInt64(payload, 0);
         
-        // Verificar assinatura
+        // Verificar assinatura - IGUAL AO AILOS
         using var hmac = new HMACSHA256(_key);
         
         // Recalcular assinatura dos primeiros 16 bytes
@@ -99,8 +104,6 @@ public sealed class EncryptedIdService : IEncryptedIdService
             if (payload[16 + i] != expectedSignature[i])
                 return false;
         }
-        
-        return true;
     }
 
     private byte[] AesEncrypt(byte[] input)
@@ -118,8 +121,8 @@ public sealed class EncryptedIdService : IEncryptedIdService
     {
         using var aes = Aes.Create();
         aes.Key = _key;
-        aes.Mode = CipherMode.ECB;
-        aes.Padding = PaddingMode.None;
+        aes.Mode = CipherMode.ECB; // IGUAL AO AILOS
+        aes.Padding = PaddingMode.None; // IGUAL AO AILOS
 
         using var decryptor = aes.CreateDecryptor();
         return decryptor.TransformFinalBlock(input, 0, input.Length);
