@@ -14,6 +14,17 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
+    
+    options.AddPolicy("ProductionCors", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:4200",
+                "https://obfuscation-serviceweb.vercel.app"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
 builder.Configuration.AddEnvironmentVariables();
@@ -25,9 +36,23 @@ builder.Services.AddSingleton<IEncryptedIdService, EncryptedIdService>();
 
 var app = builder.Build();
 
-app.UseCors("AllowAll");
-app.UseSwagger();
-app.UseSwaggerUI();
+// Aplicar CORS baseado no ambiente
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors("AllowAll");
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+else
+{
+    app.UseCors("ProductionCors");
+    app.UseSwagger();
+    app.UseSwaggerUI(c => 
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Obfuscation API");
+        c.RoutePrefix = string.Empty; // Para exibir Swagger na raiz em produção
+    });
+}
 
 // Adicione este middleware para logs de todas as requisições
 app.Use(async (context, next) =>
@@ -37,5 +62,4 @@ app.Use(async (context, next) =>
 });
 
 app.MapControllers();
-
 app.Run();
